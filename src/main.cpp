@@ -23,40 +23,68 @@
 #include <SystemStatus.h>
 
 #include <PID_v1.h>
-#include <OneWire.h>
-#include <DallasTemperature.h>
+#if defined(SW_PT100)
+  #include <Adafruit_MAX31865.h>
+#elif defined(SW_DS18B20)
+  #include <OneWire.h>
+  #include <DallasTemperature.h>
+#endif
 #include <LiquidCrystal_I2C.h>
-#include <pcf8574_esp.h>
+#if defined(BUTTONUP_BUS) || defined(BUTTONDOWN_BUS) || defined(BUTTONSTART_BUS)|| defined(BUTTONENTER_BUS)
+  #include <pcf8574_esp.h>
+#endif
+#include <MashSettingsService.h>
+#include <BoilSettingsService.h>
+#include <BrewSettingsService.h>
+#include <BrewService.h>
+#include <MashService.h>
+#include <BoilService.h>
+#if defined(SW_PT100)
+  #include <TemperatureService_RTU.h>
+#elif defined(SW_DS18B20)
+  #include <TemperatureService.h>
+#endif
+#include <HeaterService.h>
+#include <MashKettleHeaterService.h>
+#include <SpargeKettleHeaterService.h>
+#include <ActiveStatus.h>
+#include <Buzzer.h>
+#if defined(PUMP_BUS)
+  #include <Pump.h>
+#elif defined(AGITATOR_BUS)
+  #include <Agitator.h>
+#endif
 
-#include <BrewUNO/MashSettingsService.h>
-#include <BrewUNO/BoilSettingsService.h>
-#include <BrewUNO/BrewSettingsService.h>
-#include <BrewUNO/BrewService.h>
-#include <BrewUNO/MashService.h>
-#include <BrewUNO/BoilService.h>
-#include <BrewUNO/TemperatureService.h>
-#include <BrewUNO/HeaterService.h>
-#include <BrewUNO/MashKettleHeaterService.h>
-#include <BrewUNO/SpargeKettleHeaterService.h>
-#include <BrewUNO/ActiveStatus.h>
-#include <BrewUNO/Buzzer.h>
-#include <BrewUNO/Pump.h>
-#include <BrewUNO/DisplayService.h>
-#include <BrewUNO/InternationalizationService.h>
-#include <BrewUNO/KeyPadService.h>
-#include <BrewUNO/KeyButton.h>
+#include <Lcd.h>
+//#include <InternationalizationService.h>
+#if defined(BUTTONUP_BUS) || defined(BUTTONDOWN_BUS) || defined(BUTTONSTART_BUS)|| defined(BUTTONENTER_BUS)
+  #include <Keyboard.h>
+  #include <KeyButton.h>
+#endif
 
 #define SERIAL_BAUD_RATE 115200
 
-OneWire oneWire(TEMPERATURE_BUS);
-DallasTemperature DS18B20(&oneWire);
-int deviceCount = 0;
+#if defined(SW_PT100)
+  #if defined(TEMPERATURE_MASH)
+    Adafruit_MAX31865 MAX31856[1] = Adafruit_MAX31865(TEMPERATURE_MASH);
+  #endif
+  #if defined(TEMPERATURE_BOIL)
+    Adafruit_MAX31865 MAX31856[2] = Adafruit_MAX31865(TEMPERATURE_BOIL);
+  #endif
+  #if defined(TEMPERATURE_SPARGE)
+    Adafruit_MAX31865 MAX31856[3] = Adafruit_MAX31865(TEMPERATURE_SPARGE);
+  #endif
+#elif defined(SW_DS18B20)
+  OneWire oneWire(TEMPERATURE_BUS);
+  DallasTemperature DS18B20(&oneWire);
+  int deviceCount = 0;
+#endif
 
-LiquidCrystal_I2C lcd(0x0, 20, 4);
-
-TwoWire pcfWire;
-PCF857x pcf8574(PCF8574_ADDRESS, &pcfWire);
-
+LiquidCrystal_I2C lcd_i2c(0x0, 20, 4);
+#if defined(BUTTONUP_BUS) || defined(BUTTONDOWN_BUS) || defined(BUTTONSTART_BUS)|| defined(BUTTONENTER_BUS)
+  TwoWire pcfWire;
+  PCF857x pcf8574(PCF8574_ADDRESS, &pcfWire);
+#endif
 AsyncWebServer server(80);
 
 //SecuritySettingsService securitySettingsService = SecuritySettingsService(&server, &SPIFFS);
@@ -76,47 +104,68 @@ ActiveStatus activeStatus = ActiveStatus(&SPIFFS);
 NTPSettingsService ntpSettingsService = NTPSettingsService(&server, &SPIFFS, &activeStatus);
 
 BrewSettingsService brewSettingsService = BrewSettingsService(&server, &SPIFFS, &activeStatus);
-TemperatureService temperatureService = TemperatureService(&server, &SPIFFS, DS18B20, &brewSettingsService);
+#if defined(SW_PT100)
+  TemperatureService temperatureService = TemperatureService(&server, &SPIFFS, MAX31856, &brewSettingsService);
+#elif defined(SW_DS18B20)
+  TemperatureService temperatureService = TemperatureService(&server, &SPIFFS, DS18B20, &brewSettingsService);
+#endif
 MashSettingsService mashSettings = MashSettingsService(&server, &SPIFFS);
 BoilSettingsService boilSettingsService = BoilSettingsService(&server, &SPIFFS, &brewSettingsService);
+#if defined(PUMP_BUS)
+  Pump pump = Pump(&server, &activeStatus, &brewSettingsService);
+#elif defined(AGITATOR_BUS)
+  Agitator agitator = Agitator(&server, &activeStatus, &brewSettingsService);
+#endif
 
-Pump pump = Pump(&server, &activeStatus, &brewSettingsService);
-DisplayService display = DisplayService(&activeStatus, &wifiStatus, &lcd);
+Lcd lcd = Lcd(&activeStatus, &wifiStatus, &lcd_i2c);
 MashKettleHeaterService mashKettleHeaterService = MashKettleHeaterService(&temperatureService, &activeStatus, &brewSettingsService);
 SpargeKettleHeaterService spargeKettleHeaterService = SpargeKettleHeaterService(&temperatureService, &activeStatus, &brewSettingsService);
 BoilKettleHeaterService boilKettleHeaterService = BoilKettleHeaterService(&temperatureService, &activeStatus, &brewSettingsService);
-MashService mashService = MashService(&SPIFFS, &temperatureService, &pump);
+
+#if defined(PUMP_BUS)
+  MashService mashService = MashService(&SPIFFS, &temperatureService, &pump);
+#elif defined(AGITATOR_BUS)
+ MashService mashService = MashService(&SPIFFS, &temperatureService, &agitator);
+#endif
+
 BoilService boilService = BoilService(&SPIFFS, &temperatureService, &brewSettingsService);
-BrewService brewService = BrewService(&server, &SPIFFS, &mashService, &boilService, &brewSettingsService, &mashKettleHeaterService, &spargeKettleHeaterService, &boilKettleHeaterService, &activeStatus, &temperatureService, &pump);
+
+#if defined(PUMP_BUS)
+  BrewService brewService = BrewService(&server, &SPIFFS, &mashService, &boilService, &brewSettingsService, &mashKettleHeaterService, &spargeKettleHeaterService, &boilKettleHeaterService, &activeStatus, &temperatureService, &pump, &lcd);
+#elif defined(AGITATOR_BUS)
+  BrewService brewService = BrewService(&server, &SPIFFS, &mashService, &boilService, &brewSettingsService, &mashKettleHeaterService, &spargeKettleHeaterService, &boilKettleHeaterService, &activeStatus, &temperatureService, &agitator, &lcd);
+#endif
+
 //InternationalizationService internationalizationService = InternationalizationService(&server, &SPIFFS, &brewSettingsService);
 
-time_t lastReadButton = now();
-KeyButton button1(BUTTONUP_BUS, pcf8574);
-KeyButton button2(BUTTONDOWN_BUS, pcf8574);
-KeyButton button3(BUTTONSTART_BUS, pcf8574);
-KeyButton button4(BUTTONENTER_BUS, pcf8574);
-KeyPadService keypad = KeyPadService(&activeStatus, &pcf8574, &brewService, &brewSettingsService, &pump, &button1, &button2, &button3, &button4);
+#if defined(BUTTONUP_BUS) || defined(BUTTONDOWN_BUS) || defined(BUTTONSTART_BUS)|| defined(BUTTONENTER_BUS)
+  time_t lastReadButton = now();
+  KeyButton button1(BUTTONUP_BUS, pcf8574);
+  KeyButton button2(BUTTONDOWN_BUS, pcf8574);
+  KeyButton button3(BUTTONSTART_BUS, pcf8574);
+  KeyButton button4(BUTTONENTER_BUS, pcf8574);
+  Keyboard keypad = Keyboard(&activeStatus, &pcf8574, &brewService, &brewSettingsService, &pump, &button1, &button2, &button3, &button4);
 
-volatile bool PCFInterruptFlag = false;
-void ICACHE_RAM_ATTR PCFInterrupt()
-{
-  if (!PCFInterruptFlag)
+  volatile bool PCFInterruptFlag = false;
+  void ICACHE_RAM_ATTR PCFInterrupt()
   {
-    Serial.println("Button pressed");
-    lastReadButton = now();
+    if (!PCFInterruptFlag)
+    {
+      Serial.println("Button pressed");
+      lastReadButton = now();
+    }
+    PCFInterruptFlag = true;
   }
-  PCFInterruptFlag = true;
-}
-void KeyPadLoop()
-{
-  keypad.loop(PCFInterruptFlag);
-  if (now() - lastReadButton > 10 && PCFInterruptFlag)
+  void KeyPadLoop()
   {
-    PCFInterruptFlag = false;
-    Serial.println("Button released by time");
+    keypad.loop(PCFInterruptFlag);
+    if (now() - lastReadButton > 10 && PCFInterruptFlag)
+    {
+      PCFInterruptFlag = false;
+      Serial.println("Button released by time");
+    }
   }
-}
-
+#endif
 void setup()
 {
   // Disable wifi config persistance and auto reconnect
@@ -170,38 +219,53 @@ void setup()
 
   server.begin();
 
-  //BrewUNO
-  pinMode(PUMP_BUS, OUTPUT);
+  #if defined(PUMP_BUS)
+    pinMode(PUMP_BUS, OUTPUT);
+  #elif defined(AGITATOR_BUS)
+    pinMode(AGITATOR_BUS,OUTPUT);
+  #endif
   pinMode(BUZZER_BUS, OUTPUT);
   digitalWrite(BUZZER_BUS, LOW);
   pinMode(HEATER_BUS, OUTPUT);
   pinMode(SPARGE_HEATER_BUS, OUTPUT);
   pinMode(BOIL_HEATER_BUS, OUTPUT);
+  #if defined(SW_PT100)
+    temperatureService.InitTemps(MAX31856);
+  #elif defined(SW_DS18B20)
+    pinMode(TEMPERATURE_BUS,INPUT);
+  #endif
 
-  pump.TurnPumpOff();
-  DS18B20.begin();
-  // locate devices on the bus
-  Serial.println("");
-  Serial.println("Hello! I'm BrewUNO =)");
-  Serial.println("Locating DS18B20 devices...");
-  Serial.print("Found ");
-  deviceCount = DS18B20.getDeviceCount();
-  Serial.print(deviceCount, DEC);
-  Serial.println(" devices.");
-  Serial.println("");
-  temperatureService.DeviceCount = deviceCount;
+  //pump.TurnPumpOff();
+
+  #if defined(SW_PT100)
+    
+  #elif defined(SW_DS18B20)
+    DS18B20.begin();
+    // locate devices on the bus
+    Serial.println("");
+    Serial.println("Hello! I'm BrewUNO =)");
+    Serial.println("Locating DS18B20 devices...");
+    Serial.print("Found ");
+    deviceCount = DS18B20.getDeviceCount();
+    Serial.print(deviceCount, DEC);
+    Serial.println(" devices.");
+    Serial.println("");
+    temperatureService.DeviceCount = deviceCount;
+  #endif
   brewSettingsService.begin();
   brewService.begin();
-  display.begin();
+  lcd.begin();
 
-  pcfWire.begin(D2, D1);
-  //Specsheets say PCF8574 is officially rated only for 100KHz I2C-bus
-  //PCF8575 is rated for 400KHz
-  pcfWire.setClock(600000L);
-  pcf8574.begin();
-  pinMode(D3, INPUT_PULLUP);
-  pcf8574.resetInterruptPin();
-  attachInterrupt(digitalPinToInterrupt(D3), PCFInterrupt, FALLING);
+  #if defined(BUTTONUP_BUS) || defined(BUTTONDOWN_BUS) || defined(BUTTONSTART_BUS)|| defined(BUTTONENTER_BUS)
+    pcfWire.begin(D2, D1);
+    // //Specsheets say PCF8574 is officially rated only for 100KHz I2C-bus
+    // //PCF8575 is rated for 400KHz
+    pcfWire.setClock(600000L);
+    pcf8574.begin();
+    pinMode(D3, INPUT_PULLUP);
+    pcf8574.resetInterruptPin();
+    attachInterrupt(digitalPinToInterrupt(D3), PCFInterrupt, FALLING);
+  #endif
 }
 
 void loop()
@@ -211,6 +275,5 @@ void loop()
   ntpSettingsService.loop();
   otaSettingsService.loop();
   brewService.loop();
-  display.loop();
-  KeyPadLoop();
+  //KeyPadLoop();
 }

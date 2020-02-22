@@ -37,7 +37,7 @@ class PID_ATune
 	int controlType;
 	bool running;
 	unsigned long peak1, peak2, lastTime;
-	int sampleTime;
+	unsigned int sampleTime;
 	int nLookBack;
 	int peakType;
 	double lastInputs[101];

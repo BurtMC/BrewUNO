@@ -13,9 +13,5 @@ platformio.ini
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 node_modules/
-data/config/wifiSettings.json
 interface/.env.development
-<<<<<<< HEAD
-=======
-data/config/wifiSettings.json
->>>>>>> parent of b92a694... update
+/data/config/wifiSettings.json

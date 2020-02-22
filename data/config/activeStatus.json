@@ -10,5 +10,6 @@
     "target_temperature": 0,
     "brew_started": false,
     "recirculation": false,
+    "rotation": false,
     "boil_power_percentage": 0
 }

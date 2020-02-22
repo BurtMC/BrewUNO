@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import T from 'i18n-react';
 import en from "../language/en.json"
+import deDE from "../language/de-DE.json"
 import ptBR from "../language/pt-BR.json"
 import ruRU from "../language/ru-RU.json"
 import esES from "../language/es-ES.json"
@@ -15,6 +16,9 @@ class IntText extends Component {
       case "pt-BR":
         T.setTexts(ptBR)
         break
+      case "de-DE":
+        T.setTexts(deDE)
+        break
       case "en":
         T.setTexts(en);
         break
@@ -25,7 +29,7 @@ class IntText extends Component {
         T.setTexts(esES);
         break
       default:
-        T.setTexts(en)
+        T.setTexts(deDE)
         break
     }
     this.forceUpdate()
