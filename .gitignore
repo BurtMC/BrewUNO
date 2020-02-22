@@ -15,3 +15,7 @@ platformio.ini
 node_modules/
 data/config/wifiSettings.json
 interface/.env.development
+<<<<<<< HEAD
+=======
+data/config/wifiSettings.json
+>>>>>>> parent of b92a694... update
