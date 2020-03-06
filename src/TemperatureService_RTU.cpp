@@ -32,7 +32,7 @@ Temperatures TemperatureService::GetTemperatures(int NameCounter)
     //uint16_t rtd = _MAX31865[i].readRTD();
     String _json = "{ \"sensors\": [ ";
     String addr = "";
-    for (int i = 0; i < DeviceCount; i++)
+    for (int i = 1; i < DeviceCount; i++)
     {
         float temp = _brewSettingsService->TempUnit == "C" ? _MAX31865[i].temperature(100, RREF) : _MAX31865[i].temperature(100, RREF)*9/5+32;
         _json += "{ \"address\": \"" + NameCounter + "\",\"value\": \"" + String(temp) + "\"}";
