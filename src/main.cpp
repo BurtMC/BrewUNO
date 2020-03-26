@@ -65,9 +65,10 @@
 #define SERIAL_BAUD_RATE 115200
 
 #if defined(SW_PT100)
-  Adafruit_MAX31865 MAX31856[3];
+  std::vector<Adafruit_MAX31865> MAX31856;
+  MAX31856.reserve(3);
   #if defined(TEMPERATURE_MASH)
-    MAX31856[1] = Adafruit_MAX31865(TEMPERATURE_MASH);
+    MAX31856.emplace_back(TEMPERATURE_MASH);
   #endif
   #if defined(TEMPERATURE_BOIL)
     MAX31856[2] = Adafruit_MAX31865(TEMPERATURE_BOIL);
